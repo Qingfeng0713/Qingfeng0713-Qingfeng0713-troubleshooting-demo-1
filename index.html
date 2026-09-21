@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>故障排查 - 技术智库</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+    body { font-family: 'Noto Sans SC', sans-serif; }
+    .nav-item.active { background: #fff7ed; color: #ea580c; border-right: 3px solid #ea580c; }
+    .section-number { color: #f97316; font-weight: 700; margin-right: 8px; }
+    .category-dot { width: 10px; height: 10px; border-radius: 50%; background: #f97316; display: inline-block; margin-right: 10px; }
+    .card-hover { transition: all 0.2s; }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); }
+    .case-tag { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .step-line { position: absolute; left: 15px; top: 32px; bottom: -16px; width: 2px; background: #fed7aa; }
+    .hide { display: none !important; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+<div class="flex h-screen overflow-hidden">
+  <!-- 左侧导航 -->
+  <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <div class="p-4 border-b border-gray-100">
+      <div class="flex items-center gap-2 text-lg font-bold text-gray-800">
+        <i class="fa-solid fa-database text-orange-500"></i>
+        <span>技术智库</span>
+      </div>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-2">
+      <a href="#" class="nav-item flex items-center px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50">
+        <i class="fa-solid fa-house w-6 text-center mr-1 text-gray-400"></i> 首页
+      </a>
+      <a href="#" class="nav-item flex items-center px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50">
+        <i class="fa-solid fa-bolt w-6 text-center mr-1 text-gray-400"></i> 产品速查
+      </a>
+      <a href="#" class="nav-item flex items-center px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50">
+        <i class="fa-solid fa-microchip w-6 text-center mr-1 text-gray-400"></i> 主控速查
+      </a>
+      <a href="#" class="nav-item active flex items-center px-4 py-2.5 text-sm hover:bg-orange-50">
+        <i class="fa-solid fa-screwdriver-wrench w-6 text-center mr-1"></i> 故障排查
+      </a>
+      <div class="pl-10 pr-2 py-1 space-y-0.5">
+        <a href="#" onclick="showHome()" class="block px-3 py-1.5 text-sm text-orange-600 font-medium rounded hover:bg-orange-50">
+          <span class="category-dot"></span>故障排查模板
+        </a>
+        <a href="#" onclick="showCategory('no-signal')" class="block px-3 py-1.5 text-sm text-gray-600 rounded hover:bg-gray-50">
+          <span class="category-dot"></span>无信号
+        </a>
+        <a href="#" onclick="showCategory('processor-detect')" class="block px-3 py-1.5 text-sm text-gray-600 rounded hover:bg-gray-50">
+          <span class="category-dot"></span>无法探测到处理器
+        </a>
+        <a href="#" onclick="showCategory('partial-control')" class="block px-3 py-1.5 text-sm text-gray-600 rounded hover:bg-gray-50">
+          <span class="category-dot"></span>局部失控
+        </a>
+        <a href="#" onclick="showCategory('power')" class="block px-3 py-1.5 text-sm text-gray-600 rounded hover:bg-gray-50">
+          <span class="category-dot"></span>电源故障
+        </a>
+        <a href="#" onclick="showCategory('overload')" class="block px-3 py-1.5 text-sm text-gray-600 rounded hover:bg-gray-50">
+          <span class="category-dot"></span>超载
+        </a>
+        <a href="#" onclick="showCategory('blackscreen')" class="block px-3 py-1.5 text-sm text-gray-600 rounded hover:bg-gray-50">
+          <span class="category-dot"></span>局部黑屏
+        </a>
+      </div>
+      <a href="#" class="nav-item flex items-center px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50">
+        <i class="fa-solid fa-share-nodes w-6 text-center mr-1 text-gray-400"></i> 经验分享
+      </a>
+      <a href="#" class="nav-item flex items-center px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50">
+        <i class="fa-solid fa-gear w-6 text-center mr-1 text-gray-400"></i> 资料维护
+      </a>
+    </nav>
+  </aside>
+
+  <!-- 主内容区 -->
+  <main class="flex-1 overflow-y-auto">
+    <!-- 顶部栏 -->
+    <header class="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+      <div class="flex items-center gap-2 text-sm text-gray-500">
+        <span id="breadcrumb">技术智库 / 故障排查</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="showNewCase()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+          <i class="fa-solid fa-plus"></i> 新建案例
+        </button>
+      </div>
+    </header>
+
+    <div class="p-8 max-w-6xl mx-auto">
+      <!-- 首页：故障分类 -->
+      <section id="page-home" class="">
+        <div class="mb-8">
+          <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-3">
+            <span class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
+              <i class="fa-solid fa-screwdriver-wrench"></i>
+            </span>
+            故障排查
+          </h1>
+          <p class="mt-2 text-gray-500">按 LED 显示屏常见故障分类，快速定位问题、查看排查方向与历史案例。</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <!-- 卡片：无信号 -->
+          <div onclick="showCategory('no-signal')" class="card-hover bg-white rounded-xl border border-gray-200 p-6 cursor-pointer">
+            <div class="flex items-start justify-between mb-4">
+              <div class="w-12 h-12 rounded-lg bg-red-50 text-red-500 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-tower-broadcast"></i>
+              </div>
+              <span class="text-xs font-medium text-gray-400">12 个案例</span>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">无信号</h3>
+            <p class="text-sm text-gray-500 mb-4">整屏或部分区域提示无信号、输入源丢失、画面中断。</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="case-tag text-xs px-2 py-1 rounded">HDMI/DP</span>
+              <span class="case-tag text-xs px-2 py-1 rounded">光纤</span>
+              <span class="case-tag text-xs px-2 py-1 rounded">发送卡</span>
+            </div>
+          </div>
+
+          <!-- 卡片：无法探测到处理器 -->
+          <div onclick="showCategory('processor-detect')" class="card-hover bg-white rounded-xl border border-gray-200 p-6 cursor-pointer">
+            <div class="flex items-start justify-between mb-4">
+              <div class="w-12 h-12 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-microchip"></i>
+              </div>
+              <span class="text-xs font-medium text-gray-400">8 个案例</span>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">无法探测到处理器</h3>
+            <p class="text-sm text-gray-500 mb-4">软件中检测不到接收卡、处理器离线、通信中断。</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="case-tag text-xs px-2 py-1 rounded">网络</span>
+              <span class="case-tag text-xs px-2 py-1 rounded">固件</span>
+              <span class="case-tag text-xs px-2 py-1 rounded">IP 冲突</span>
+            </div>
+          </div>
+
+          <!-- 卡片：局部失控 -->
+          <div onclick="showCategory('partial-control')" class="card-hover bg-white rounded-xl border border-gray-200 p-6 cursor-pointer">
+            <div class="flex items-start justify-between mb-4">
+              <div class="w-12 h-12 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-border-none"></i>
+              </div>
+              <span class="text-xs font-medium text-gray-400">15 个案例</span>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">局部失控</h3>
+            <p class="text-sm text-gray-500 mb-4">部分箱体不受控、画面错位、某区域无法刷新或响应。</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="case-tag text-xs px-2 py-1 rounded">接收卡</span>
+              <span class="case-tag text-xs px-2 py-1 rounded">网线</span>
+              <span class="case-tag text-xs px-2 py-1 rounded">配置</span>
+            </div>
+          </div>
+
+          <!-- 卡片：电源故障 -->
+          <div onclick="showCategory('power')" class="card-hover bg-white rounded-xl border border-gray-200 p-6 cursor-pointer">
+            <div class="flex items-start justify-between mb-4">
+              <div class="w-12 h-12 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-plug"></i>
+              </div>
+              <span class="text-xs font-medium text-gray-400">6 个案例</span>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">电源故障</h3>
+            <p class="text-sm text-gray-500 mb-4">箱体不上电、电源指示灯异常、跳闸、供电不稳定。</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="case-tag text-xs px-2 py-1 rounded">电源模块</span>
+              <span class="case-tag text-xs px-2 py-1 rounded">空开</span>
+              <span class="case-tag text-xs px-2 py-1 rounded">线缆</span>
+            </div>
+          </div>
+
+          <!-- 卡片：超载 -->
+          <div onclick="showCategory('overload')" class="card-hover bg-white rounded-xl border border-gray-200 p-6 cursor-pointer">
+            <div class="flex items-start justify-between mb-4">
+              <div class="w-12 h-12 rounded-lg bg-green-50 text-green-500 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-weight-hanging"></i>
+              </div>
+              <span class="text-xs font-medium text-gray-400">5 个案例</span>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">超载</h3>
+            <p class="text-sm text-gray-500 mb-4">带载面积超限、帧率下降、画面卡顿或撕裂。</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="case-tag text-xs px-2 py-1 rounded">带载</span>
+              <span class="case-tag text-xs px-2 py-1 rounded">帧率</span>
+            </div>
+          </div>
+
+          <!-- 卡片：局部黑屏 -->
+          <div onclick="showCategory('blackscreen')" class="card-hover bg-white rounded-xl border border-gray-200 p-6 cursor-pointer">
+            <div class="flex items-start justify-between mb-4">
+              <div class="w-12 h-12 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-square"></i>
+              </div>
+              <span class="text-xs font-medium text-gray-400">9 个案例</span>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">局部黑屏</h3>
+            <p class="text-sm text-gray-500 mb-4">部分模组无显示、整块箱体黑屏、但控制正常。</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="case-tag text-xs px-2 py-1 rounded">模组</span>
+              <span class="case-tag text-xs px-2 py-1 rounded">排线</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 最近更新 -->
+        <div class="mt-10">
+          <h2 class="text-lg font-bold text-gray-900 mb-4">最近更新案例</h2>
+          <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 text-gray-500">
+                <tr>
+                  <th class="px-6 py-3 text-left font-medium">型号 / 故障现象</th>
+                  <th class="px-6 py-3 text-left font-medium">故障类别</th>
+                  <th class="px-6 py-3 text-left font-medium">报告人</th>
+                  <th class="px-6 py-3 text-left font-medium">日期</th>
+                  <th class="px-6 py-3 text-left font-medium">状态</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr onclick="showCase('case-1')" class="hover:bg-orange-50 cursor-pointer">
+                  <td class="px-6 py-4 font-medium text-gray-900">VX16s · 大屏整屏无信号</td>
+                  <td class="px-6 py-4"><span class="case-tag text-xs px-2 py-1 rounded">无信号</span></td>
+                  <td class="px-6 py-4 text-gray-500">张工</td>
+                  <td class="px-6 py-4 text-gray-500">2026-09-18</td>
+                  <td class="px-6 py-4"><span class="text-green-600 text-xs font-medium"><i class="fa-solid fa-check-circle"></i> 已解决</span></td>
+                </tr>
+                <tr onclick="showCase('case-2')" class="hover:bg-orange-50 cursor-pointer">
+                  <td class="px-6 py-4 font-medium text-gray-900">MCTRL4K · 软件探测不到处理器</td>
+                  <td class="px-6 py-4"><span class="case-tag text-xs px-2 py-1 rounded">无法探测到处理器</span></td>
+                  <td class="px-6 py-4 text-gray-500">李工</td>
+                  <td class="px-6 py-4 text-gray-500">2026-09-15</td>
+                  <td class="px-6 py-4"><span class="text-green-600 text-xs font-medium"><i class="fa-solid fa-check-circle"></i> 已解决</span></td>
+                </tr>
+                <tr onclick="showCase('case-3')" class="hover:bg-orange-50 cursor-pointer">
+                  <td class="px-6 py-4 font-medium text-gray-900">VX6 · 右侧两列箱体失控</td>
+                  <td class="px-6 py-4"><span class="case-tag text-xs px-2 py-1 rounded">局部失控</span></td>
+                  <td class="px-6 py-4 text-gray-500">王工</td>
+                  <td class="px-6 py-4 text-gray-500">2026-09-12</td>
+                  <td class="px-6 py-4"><span class="text-orange-600 text-xs font-medium"><i class="fa-solid fa-clock"></i> 待验证</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 分类详情页 -->
+      <section id="page-category" class="hide">
+        <div class="mb-6">
+          <button onclick="showHome()" class="text-sm text-orange-600 hover:underline mb-2"><i class="fa-solid fa-arrow-left"></i> 返回故障排查首页</button>
+          <h1 id="category-title" class="text-2xl font-bold text-gray-900 flex items-center gap-3">
+            <span class="category-dot"></span>无信号
+          </h1>
+          <p id="category-desc" class="mt-2 text-gray-500">整屏或部分区域提示无信号、输入源丢失、画面中断。</p>
+        </div>
+
+        <!-- 知识框架：现象 / 排查 / 原因 / 延伸 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-8">
+          <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center">
+              <span class="section-number">01</span>常见故障现象
+            </h3>
+            <ul id="category-symptoms" class="space-y-2 text-sm text-gray-600 list-disc list-inside">
+              <li>整屏蓝屏/黑屏并提示“无信号”</li>
+              <li>部分区域正常，部分区域无信号</li>
+              <li>信号时有时无，画面闪烁后丢失</li>
+            </ul>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center">
+              <span class="section-number">02</span>排查方向
+            </h3>
+            <ul id="category-steps" class="space-y-2 text-sm text-gray-600 list-disc list-inside">
+              <li>检查输入源设备是否正常工作</li>
+              <li>确认视频线缆（HDMI/DP/DVI）连接牢固</li>
+              <li>测试光纤模块与跳线是否损坏</li>
+              <li>检查发送卡输入口选择是否正确</li>
+            </ul>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center">
+              <span class="section-number">03</span>原因分析
+            </h3>
+            <ul id="category-causes" class="space-y-2 text-sm text-gray-600 list-disc list-inside">
+              <li>输入源分辨率或刷新率超出处理器支持范围</li>
+              <li>视频线缆松动、氧化或损坏</li>
+              <li>光纤收发器光功率不足</li>
+              <li>发送卡输入源切换错误</li>
+            </ul>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center">
+              <span class="section-number">04</span>扩展延伸
+            </h3>
+            <ul id="category-extend" class="space-y-2 text-sm text-gray-600 list-disc list-inside">
+              <li>多信号源备份切换方案</li>
+              <li>EDID 学习与自定义设置</li>
+              <li>长距离传输的光纤与网络延长器选型</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 本类案例 -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-900">本类案例</h2>
+            <button onclick="showNewCase()" class="text-sm text-orange-600 hover:underline"><i class="fa-solid fa-plus"></i> 添加案例</button>
+          </div>
+          <div id="category-cases" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 动态填充 -->
+          </div>
+        </div>
+
+        <!-- 相关案例 -->
+        <div>
+          <h2 class="text-lg font-bold text-gray-900 mb-4">相关案例</h2>
+          <div id="related-cases" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 动态填充 -->
+          </div>
+        </div>
+      </section>
+
+      <!-- 案例详情页 -->
+      <section id="page-case" class="hide">
+        <button onclick="showCategory(currentCategory)" class="text-sm text-orange-600 hover:underline mb-4"><i class="fa-solid fa-arrow-left"></i> 返回分类</button>
+
+        <div class="bg-white rounded-xl border border-gray-200 p-8">
+          <div class="border-b border-gray-100 pb-6 mb-6">
+            <h1 id="case-title" class="text-2xl font-bold text-gray-900 mb-3">VX16s · 大屏整屏无信号</h1>
+            <div class="flex flex-wrap gap-6 text-sm text-gray-500">
+              <span><i class="fa-solid fa-microchip mr-1 text-gray-400"></i>型号 / 版本：<span id="case-model" class="text-gray-800">VX16s / V2.3.1</span></span>
+              <span><i class="fa-solid fa-user mr-1 text-gray-400"></i>报告人：<span id="case-reporter" class="text-gray-800">张工</span></span>
+              <span><i class="fa-regular fa-calendar mr-1 text-gray-400"></i>日期：<span id="case-date" class="text-gray-800">2026-09-18</span></span>
+              <span><i class="fa-solid fa-tag mr-1 text-gray-400"></i>类别：<span id="case-category" class="case-tag text-xs px-2 py-0.5 rounded">无信号</span></span>
+            </div>
+          </div>
+
+          <div class="space-y-8">
+            <div>
+              <h2 class="text-lg font-bold text-gray-900 mb-3 flex items-center"><span class="section-number">01</span>问题是什么</h2>
+              <p id="case-what" class="text-gray-700 leading-relaxed">现场大屏整屏黑屏，处理器面板显示“No Signal”。客户反馈在切换 HDMI 输入源后突然出现，影响整面 8K 大屏显示。</p>
+              <div class="mt-3 p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-sm text-gray-400 text-center">
+                <i class="fa-regular fa-image mr-2"></i>此处插入现场故障图 / 视频截图
+              </div>
+            </div>
+
+            <div>
+              <h2 class="text-lg font-bold text-gray-900 mb-3 flex items-center"><span class="section-number">02</span>原因分析</h2>
+              <div class="bg-orange-50 rounded-lg p-5 border border-orange-100">
+                <p class="text-sm text-gray-700 mb-2"><strong class="text-orange-700">原因：</strong><span id="case-cause">已确认原因：发送卡 HDMI 输入口切换到了未接线的 IN2，导致无信号。</span></p>
+                <p class="text-sm text-gray-700"><strong class="text-orange-700">排查：</strong></p>
+                <ol id="case-investigation" class="mt-2 space-y-2 text-sm text-gray-700 list-decimal list-inside">
+                  <li>检查处理器前面板输入指示灯，发现 IN2 灯亮，IN1 灯灭。</li>
+                  <li>用备用笔记本直连发送卡 IN1，画面恢复，排除线缆与模组问题。</li>
+                  <li>在软件中将输入源切回 IN1 并锁定，故障消失。</li>
+                </ol>
+              </div>
+            </div>
+
+            <div>
+              <h2 class="text-lg font-bold text-gray-900 mb-3 flex items-center"><span class="section-number">03</span>最终结论</h2>
+              <div class="bg-orange-50 rounded-lg p-5 border border-orange-100">
+                <p class="text-sm text-gray-700 mb-2"><strong class="text-orange-700">结论：</strong><span id="case-conclusion">根因是输入源被误切换；处理结果为画面恢复正常，未再复现。</span></p>
+                <p class="text-sm text-gray-700"><strong class="text-orange-700">处理与验证：</strong><span id="case-solution">在软件中重新指定 HDMI 输入源为 IN1，并启用“锁定输入源”功能；连续播放 4 小时验证稳定。</span></p>
+              </div>
+            </div>
+
+            <div>
+              <h2 class="text-lg font-bold text-gray-900 mb-3 flex items-center"><span class="section-number">04</span>解决措施</h2>
+              <ul id="case-measures" class="space-y-2 text-sm text-gray-700 list-disc list-inside">
+                <li>在软件中锁定输入源，防止误切换。</li>
+                <li>更新现场操作手册，明确切换输入源需双人复核。</li>
+                <li>建议客户升级固件至 V2.4.0，优化输入源记忆逻辑。</li>
+              </ul>
+            </div>
+
+            <div class="pt-4 border-t border-gray-100 text-sm text-gray-400">
+              <p>复核：张工 / 2026-09-19</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 新建案例页 -->
+      <section id="page-new" class="hide">
+        <div class="mb-6">
+          <button onclick="showHome()" class="text-sm text-orange-600 hover:underline mb-2"><i class="fa-solid fa-arrow-left"></i> 返回首页</button>
+          <h1 class="text-2xl font-bold text-gray-900">新建故障案例</h1>
+          <p class="text-gray-500 text-sm mt-1">按模板填写，便于后续检索与沉淀。</p>
+        </div>
+
+        <div class="bg-white rounded-xl border border-gray-200 p-8">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">型号 / 版本</label>
+              <input type="text" placeholder="如：VX16s / V2.3.1" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">故障现象（标题）</label>
+              <input type="text" placeholder="如：大屏整屏无信号" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">日期</label>
+              <input type="date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">报告人</label>
+              <input type="text" placeholder="报告人姓名" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2">故障类别</label>
+              <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none">
+                <option>无信号</option>
+                <option>无法探测到处理器</option>
+                <option>局部失控</option>
+                <option>电源故障</option>
+                <option>超载</option>
+                <option>局部黑屏</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <div>
+              <label class="block text-sm font-bold text-gray-900 mb-2 flex items-center"><span class="section-number">01</span>现象描述（尽量附图）</label>
+              <textarea rows="3" placeholder="出现条件、异常现象与影响范围，1-2 句话；需要时附现场图。" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"></textarea>
+              <button class="mt-2 text-sm text-orange-600 border border-orange-200 bg-orange-50 px-3 py-1.5 rounded hover:bg-orange-100">
+                <i class="fa-solid fa-image"></i> 上传图片 / 截图
+              </button>
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-gray-900 mb-2 flex items-center"><span class="section-number">02</span>简要描述排查过程</label>
+              <textarea rows="4" placeholder="按先后写 1-3 步，附关键测试结果或截图。" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"></textarea>
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-gray-900 mb-2 flex items-center"><span class="section-number">03</span>解决措施</label>
+              <textarea rows="4" placeholder="采取的措施、验证方法及结果；未验证标注“待验证”。" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"></textarea>
+            </div>
+          </div>
+
+          <div class="mt-8 flex items-center gap-3">
+            <button onclick="showHome()" class="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg text-sm font-medium">保存案例</button>
+            <button onclick="showHome()" class="border border-gray-300 hover:bg-gray-50 text-gray-700 px-6 py-2 rounded-lg text-sm font-medium">取消</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+  const data = {
+    'no-signal': {
+      title: '无信号',
+      desc: '整屏或部分区域提示无信号、输入源丢失、画面中断。',
+      symptoms: [
+        '整屏蓝屏/黑屏并提示“无信号”',
+        '部分区域正常，部分区域无信号',
+        '信号时有时无，画面闪烁后丢失',
+        '切换输入源后画面中断'
+      ],
+      steps: [
+        '检查输入源设备是否正常工作',
+        '确认视频线缆（HDMI/DP/DVI）连接牢固',
+        '测试光纤模块与跳线是否损坏',
+        '检查发送卡输入口选择是否正确',
+        '确认处理器 EDID 与输入分辨率匹配'
+      ],
+      causes: [
+        '输入源分辨率或刷新率超出处理器支持范围',
+        '视频线缆松动、氧化或损坏',
+        '光纤收发器光功率不足',
+        '发送卡输入源切换错误',
+        '输入设备休眠或输出中断'
+      ],
+      extend: [
+        '多信号源备份切换方案',
+        'EDID 学习与自定义设置',
+        '长距离传输的光纤与网络延长器选型',
+        '输入源锁定与权限管理'
+      ],
+      cases: [
+        { id: 'case-1', title: 'VX16s · 大屏整屏无信号', reporter: '张工', date: '2026-09-18', status: '已解决' },
+        { id: 'case-4', title: 'MCTRL300 · HDMI 时有时无', reporter: '陈工', date: '2026-08-22', status: '已解决' }
+      ],
+      related: [
+        { id: 'case-5', title: '光纤不通导致整屏无信号', reporter: '刘工', date: '2026-07-15', status: '已解决' }
+      ]
+    },
+    'processor-detect': {
+      title: '无法探测到处理器',
+      desc: '软件中检测不到接收卡、处理器离线、通信中断。',
+      symptoms: [
+        '控制软件显示“未找到设备”',
+        '设备列表中处理器图标变灰',
+        '能 ping 通但软件无法加载参数',
+        '批量设备中偶发掉线'
+      ],
+      steps: [
+        '检查网线连接与交换机端口状态',
+        '确认 PC 与处理器在同一网段',
+        '检查防火墙是否屏蔽控制端口',
+        '尝试重启处理器与控制软件',
+        '核对固件版本是否兼容'
+      ],
+      causes: [
+        'IP 地址冲突或子网配置错误',
+        '网线/水晶头接触不良',
+        '处理器固件损坏或版本过旧',
+        '控制软件版本不匹配',
+        '网络风暴或广播包抑制'
+      ],
+      extend: [
+        'DHCP 与静态 IP 最佳实践',
+        '网段划分与 VLAN 规划',
+        '批量设备固件升级流程',
+        '远程诊断与日志导出'
+      ],
+      cases: [
+        { id: 'case-2', title: 'MCTRL4K · 软件探测不到处理器', reporter: '李工', date: '2026-09-15', status: '已解决' }
+      ],
+      related: [
+        { id: 'case-3', title: 'VX6 · 右侧两列箱体失控', reporter: '王工', date: '2026-09-12', status: '待验证' }
+      ]
+    },
+    'partial-control': {
+      title: '局部失控',
+      desc: '部分箱体不受控、画面错位、某区域无法刷新或响应。',
+      symptoms: [
+        '部分箱体画面固定不变',
+        '某区域亮度/色温无法同步',
+        '画面拼接处出现错位或撕裂',
+        '局部区域无法接收播控指令'
+      ],
+      steps: [
+        '检查失控区域的网线连接',
+        '确认接收卡编号与箱体位置对应',
+        '检查级联网线是否松动或接反',
+        '重新加载接收卡配置文件',
+        '测试单独点亮失控箱体'
+      ],
+      causes: [
+        '接收卡网线松脱或损坏',
+        '接收卡固件异常',
+        '配置文件与实际箱体不一致',
+        '网线过长导致信号衰减',
+        '交换机端口丢包'
+      ],
+      extend: [
+        '箱体编号规则与标签管理',
+        '接收卡热备份配置',
+        '网线质量与长度限制',
+        '现场快速定位工具使用'
+      ],
+      cases: [
+        { id: 'case-3', title: 'VX6 · 右侧两列箱体失控', reporter: '王工', date: '2026-09-12', status: '待验证' }
+      ],
+      related: [
+        { id: 'case-2', title: 'MCTRL4K · 软件探测不到处理器', reporter: '李工', date: '2026-09-15', status: '已解决' }
+      ]
+    },
+    'power': {
+      title: '电源故障',
+      desc: '箱体不上电、电源指示灯异常、跳闸、供电不稳定。',
+      symptoms: [
+        '整块箱体无电，指示灯不亮',
+        '空开频繁跳闸',
+        '电源模块风扇异响、过热',
+        '屏幕亮度随电源波动变化'
+      ],
+      steps: [
+        '检查空开是否跳闸、线缆是否松动',
+        '测量输入电压是否稳定',
+        '检查电源模块输出电压',
+        '排查是否有短路或过载',
+        '替换备用电源模块交叉验证'
+      ],
+      causes: [
+        '电源模块老化或损坏',
+        '输入电压不稳或缺相',
+        '箱体内部短路',
+        '电源功率余量不足',
+        '接线端子氧化接触不良'
+      ],
+      extend: [
+        '电源冗余设计规范',
+        '配电箱巡检清单',
+        '电源模块寿命与备件策略',
+        '雷击与浪涌保护'
+      ],
+      cases: [
+        { id: 'case-6', title: '户外屏 · 雷雨天后整屏无电', reporter: '赵工', date: '2026-08-30', status: '已解决' }
+      ],
+      related: [
+        { id: 'case-1', title: 'VX16s · 大屏整屏无信号', reporter: '张工', date: '2026-09-18', status: '已解决' }
+      ]
+    },
+    'overload': {
+      title: '超载',
+      desc: '带载面积超限、帧率下降、画面卡顿或撕裂。',
+      symptoms: [
+        '画面出现横向/纵向撕裂',
+        '动态画面卡顿、拖影',
+        '软件提示“带载超限”',
+        '高分辨率素材无法满帧输出'
+      ],
+      steps: [
+        '计算实际带载像素是否超过规格',
+        '降低分辨率或刷新率测试',
+        '检查是否启用了高位深/高灰阶模式',
+        '确认输出网口分配是否合理',
+        '检查输入源帧率与处理器设置'
+      ],
+      causes: [
+        '单口带载像素超出限制',
+        '刷新率设置过高导致带宽不足',
+        '输入源帧率与输出不同步',
+        '开启了过高的灰阶或色深',
+        '多画面拼接未做负载均衡'
+      ],
+      extend: [
+        '处理器带载计算器使用',
+        '多发送卡级联方案',
+        '帧率、灰阶、色深权衡',
+        '4K/8K 大屏负载规划'
+      ],
+      cases: [
+        { id: 'case-7', title: '4K 项目 · 高帧率下画面撕裂', reporter: '孙工', date: '2026-08-10', status: '已解决' }
+      ],
+      related: [
+        { id: 'case-3', title: 'VX6 · 右侧两列箱体失控', reporter: '王工', date: '2026-09-12', status: '待验证' }
+      ]
+    },
+    'blackscreen': {
+      title: '局部黑屏',
+      desc: '部分模组无显示、整块箱体黑屏、但控制正常。',
+      symptoms: [
+        '整块箱体黑屏，但控制软件显示在线',
+        '单个模组或若干模组不亮',
+        '黑屏区域随时间扩大',
+        '拍打箱体后黑屏恢复'
+      ],
+      steps: [
+        '检查模组供电排线是否松脱',
+        '检查模组与 HUB 板连接线',
+        '交叉替换模组定位故障点',
+        '检查电源输出是否异常',
+        '查看接收卡日志是否有报错'
+      ],
+      causes: [
+        '模组电源排线接触不良',
+        '模组灯板损坏',
+        'HUB 板输出端口故障',
+        '接收卡到 HUB 排线损坏',
+        '模组级联芯片烧毁'
+      ],
+      extend: [
+        '模组备件快速更换流程',
+        'HUB 板与接收卡接口规范',
+        '箱体内部线缆固定标准',
+        '现场黑点/死灯处理规范'
+      ],
+      cases: [
+        { id: 'case-8', title: '室内屏 · 第 3 行箱体局部黑屏', reporter: '周工', date: '2026-07-28', status: '已解决' }
+      ],
+      related: [
+        { id: 'case-3', title: 'VX6 · 右侧两列箱体失控', reporter: '王工', date: '2026-09-12', status: '待验证' }
+      ]
+    }
+  };
+
+  const caseData = {
+    'case-1': {
+      title: 'VX16s · 大屏整屏无信号',
+      model: 'VX16s / V2.3.1',
+      reporter: '张工',
+      date: '2026-09-18',
+      category: '无信号',
+      what: '现场大屏整屏黑屏，处理器面板显示“No Signal”。客户反馈在切换 HDMI 输入源后突然出现，影响整面 8K 大屏显示。',
+      cause: '已确认原因：发送卡 HDMI 输入口切换到了未接线的 IN2，导致无信号。',
+      investigation: [
+        '检查处理器前面板输入指示灯，发现 IN2 灯亮，IN1 灯灭。',
+        '用备用笔记本直连发送卡 IN1，画面恢复，排除线缆与模组问题。',
+        '在软件中将输入源切回 IN1 并锁定，故障消失。'
+      ],
+      conclusion: '根因是输入源被误切换；处理结果为画面恢复正常，未再复现。',
+      solution: '在软件中重新指定 HDMI 输入源为 IN1，并启用“锁定输入源”功能；连续播放 4 小时验证稳定。',
+      measures: [
+        '在软件中锁定输入源，防止误切换。',
+        '更新现场操作手册，明确切换输入源需双人复核。',
+        '建议客户升级固件至 V2.4.0，优化输入源记忆逻辑。'
+      ]
+    },
+    'case-2': {
+      title: 'MCTRL4K · 软件探测不到处理器',
+      model: 'MCTRL4K / V1.8.5',
+      reporter: '李工',
+      date: '2026-09-15',
+      category: '无法探测到处理器',
+      what: '控制电脑打开 NovaLCT 后设备列表为空，无法对 MCTRL4K 进行参数配置，但设备前面板指示灯正常。',
+      cause: '已确认原因：PC 网卡被手动设置为 192.168.0.x 网段，与处理器默认 192.168.1.x 不在同一网段。',
+      investigation: [
+        '检查 PC 网口灯闪烁正常，排除物理连接问题。',
+        '在命令行 ping 处理器默认 IP 不通，检查 PC IP 发现网段错误。',
+        '将 PC 网卡改为自动获取并重启软件，设备正常识别。'
+      ],
+      conclusion: '根因是 PC 与处理器不在同一网段；处理后软件可正常探测并加载参数。',
+      solution: '统一现场调试电脑网络配置，设置静态 IP 为 192.168.1.100/24，并在交付文档中备注。',
+      measures: [
+        '制定现场调试电脑网络配置规范。',
+        '在设备上张贴默认 IP 与登录信息标签。',
+        '培训售后同事使用 NovaLCT 自动搜索功能。'
+      ]
+    },
+    'case-3': {
+      title: 'VX6 · 右侧两列箱体失控',
+      model: 'VX6 / V2.1.0',
+      reporter: '王工',
+      date: '2026-09-12',
+      category: '局部失控',
+      what: '整屏播放视频时，右侧第 7-8 列箱体画面静止，无法跟随主画面变化，控制软件显示该箱体在线。',
+      cause: '疑似原因：右侧箱体级联网线中有一段接触不良，导致数据包丢包。',
+      investigation: [
+        '在软件中单独点亮第 7-8 列，问题依旧，排除播控内容问题。',
+        '检查网线接口，发现第 6 列到第 7 列的级联网线水晶头松动。',
+        '更换网线后画面恢复，待长期观察是否复现。'
+      ],
+      conclusion: '初步定位为级联网线接触不良；更换网线后暂未复现，需继续观察。',
+      solution: '更换级联网线并重新压接水晶头；建议增加网线固定扎带防止拖拽。待验证。',
+      measures: [
+        '对所有级联网线进行紧固检查。',
+        '在关键连接点增加标签与固定装置。',
+        '一周内回访确认是否复现。'
+      ]
+    }
+  };
+
+  let currentCategory = 'no-signal';
+
+  function hideAll() {
+    ['page-home', 'page-category', 'page-case', 'page-new'].forEach(id => {
+      document.getElementById(id).classList.add('hide');
+    });
+  }
+
+  function showHome() {
+    hideAll();
+    document.getElementById('page-home').classList.remove('hide');
+    document.getElementById('breadcrumb').textContent = '技术智库 / 故障排查';
+    window.scrollTo(0, 0);
+  }
+
+  function showCategory(key) {
+    currentCategory = key;
+    const d = data[key];
+    hideAll();
+    document.getElementById('page-category').classList.remove('hide');
+    document.getElementById('category-title').innerHTML = `<span class="category-dot"></span>${d.title}`;
+    document.getElementById('category-desc').textContent = d.desc;
+    fillList('category-symptoms', d.symptoms);
+    fillList('category-steps', d.steps);
+    fillList('category-causes', d.causes);
+    fillList('category-extend', d.extend);
+    fillCases('category-cases', d.cases);
+    fillCases('related-cases', d.related);
+    document.getElementById('breadcrumb').textContent = `技术智库 / 故障排查 / ${d.title}`;
+    window.scrollTo(0, 0);
+  }
+
+  function fillList(id, items) {
+    document.getElementById(id).innerHTML = items.map(i => `<li>${i}</li>`).join('');
+  }
+
+  function fillCases(id, cases) {
+    const el = document.getElementById(id);
+    if (!cases || cases.length === 0) {
+      el.innerHTML = '<p class="text-sm text-gray-400">暂无相关案例</p>';
+      return;
+    }
+    el.innerHTML = cases.map(c => `
+      <div onclick="showCase('${c.id}')" class="card-hover bg-white rounded-lg border border-gray-200 p-4 cursor-pointer">
+        <h4 class="font-bold text-gray-900 mb-2">${c.title}</h4>
+        <div class="flex items-center gap-4 text-xs text-gray-500">
+          <span><i class="fa-regular fa-user mr-1"></i>${c.reporter}</span>
+          <span><i class="fa-regular fa-calendar mr-1"></i>${c.date}</span>
+          <span class="${c.status === '已解决' ? 'text-green-600' : 'text-orange-600'}">${c.status}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function showCase(id) {
+    const c = caseData[id];
+    if (!c) return;
+    hideAll();
+    document.getElementById('page-case').classList.remove('hide');
+    document.getElementById('case-title').textContent = c.title;
+    document.getElementById('case-model').textContent = c.model;
+    document.getElementById('case-reporter').textContent = c.reporter;
+    document.getElementById('case-date').textContent = c.date;
+    document.getElementById('case-category').textContent = c.category;
+    document.getElementById('case-what').textContent = c.what;
+    document.getElementById('case-cause').textContent = c.cause;
+    document.getElementById('case-investigation').innerHTML = c.investigation.map(i => `<li>${i}</li>`).join('');
+    document.getElementById('case-conclusion').textContent = c.conclusion;
+    document.getElementById('case-solution').textContent = c.solution;
+    document.getElementById('case-measures').innerHTML = c.measures.map(i => `<li>${i}</li>`).join('');
+    document.getElementById('breadcrumb').textContent = `技术智库 / 故障排查 / ${c.category} / ${c.title}`;
+    window.scrollTo(0, 0);
+  }
+
+  function showNewCase() {
+    hideAll();
+    document.getElementById('page-new').classList.remove('hide');
+    document.getElementById('breadcrumb').textContent = '技术智库 / 故障排查 / 新建案例';
+    window.scrollTo(0, 0);
+  }
+</script>
+
+</body>
+</html>
